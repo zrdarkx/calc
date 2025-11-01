@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Tasas - Venezuela</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e40af">
+	<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1>💱 Tasas de Cambio VE</h1>
+        <div class="header-info">
+            <span class="status-indicator" id="statusIndicator">●</span>
+            <span id="lastUpdate">Actualizando...</span>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="calculator">Calculadora</button>
+        <button class="tab-btn" data-tab="crypto">Cripto</button>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        
+        <!-- Dashboard Section -->
+        <section id="dashboard" class="tab-content active">
+            <div class="actions">
+                <button class="btn btn-primary" id="refreshBtn">🔄 Actualizar</button>
+                <button class="btn btn-secondary" id="shareDashboardBtn">📤 Compartir</button>
+            </div>
+
+            <div class="cards-grid">
+                <!-- Dólar BCV -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🇺🇸 Dólar BCV</h3>
+                        <span class="badge">USD</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="rate" id="bcvRate">Bs. --</div>
+                        <div class="change" id="bcvChange">--</div>
+                    </div>
+                </div>
+
+                <!-- Euro BCV -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🇪🇺 Euro BCV</h3>
+                        <span class="badge">EUR</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="rate" id="eurRate">Bs. --</div>
+                        <div class="change" id="eurChange">--</div>
+                    </div>
+                </div>
+
+                <!-- USDT Binance -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>₮ USDT Binance</h3>
+                        <span class="badge">P2P</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="rate" id="binanceRate">Bs. --</div>
+                        <div class="change" id="binanceChange">--</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Calculator Section -->
+        <section id="calculator" class="tab-content">
+            <div class="actions">
+                <button class="btn btn-secondary" id="shareCalcBtn">📤 Compartir</button>
+            </div>
+
+            <div class="calculator-container">
+                <h2>🧮 Calculadora de Tasas</h2>
+                
+                <!-- Single Rate Calculator -->
+                <div class="calc-card">
+                    <h3>Conversión Simple</h3>
+                    
+                    <div class="form-group">
+                        <label>Seleccionar Tasa:</label>
+                        <select id="rateSelect" class="input">
+                            <option value="bcv">Dólar BCV</option>
+                            <option value="eur">Euro BCV</option>
+                            <option value="binance">USDT Binance</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Dirección:</label>
+                        <select id="directionSelect" class="input">
+                            <option value="toVes">Divisa → VES</option>
+                            <option value="fromVes">VES → Divisa</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label id="inputLabel">Cantidad (USD):</label>
+                        <input type="number" id="amountInput" class="input" placeholder="0.00" step="0.01">
+                    </div>
+
+                    <div class="result-box">
+                        <div class="result-label">Resultado:</div>
+                        <div class="result-value" id="singleResult">Bs. 0.00</div>
+                    </div>
+                </div>
+
+                <!-- Comparison Calculator -->
+                <div class="calc-card">
+                    <h3>Comparación de Tasas</h3>
+                    
+                    <div class="form-group">
+                        <label>Primera Tasa:</label>
+                        <select id="rate1Select" class="input">
+                            <option value="bcv">Dólar BCV</option>
+                            <option value="eur">Euro BCV</option>
+                            <option value="binance" selected>USDT Binance</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Segunda Tasa:</label>
+                        <select id="rate2Select" class="input">
+                            <option value="bcv" selected>Dólar BCV</option>
+                            <option value="eur">Euro BCV</option>
+                            <option value="binance">USDT Binance</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cantidad (VES):</label>
+                        <input type="number" id="compareAmount" class="input" placeholder="0.00" step="0.01">
+                    </div>
+
+                    <div class="comparison-results">
+                        <div class="comparison-item">
+                            <span id="rate1Name">USDT Binance</span>
+                            <strong id="rate1Result">0.00</strong>
+                        </div>
+                        <div class="comparison-item">
+                            <span id="rate2Name">Dólar BCV</span>
+                            <strong id="rate2Result">0.00</strong>
+                        </div>
+                        <div class="comparison-item highlight">
+                            <span>Promedio</span>
+                            <strong id="averageResult">0.00</strong>
+                        </div>
+                        <div class="comparison-item">
+                            <span>Diferencia</span>
+                            <strong id="differenceResult">0.00%</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Crypto Section -->
+        <section id="crypto" class="tab-content">
+            <div class="actions">
+                <button class="btn btn-primary" id="refreshCryptoBtn">🔄 Actualizar</button>
+                <button class="btn btn-secondary" id="shareCryptoBtn">📤 Compartir</button>
+            </div>
+
+            <div class="crypto-grid">
+                <div class="crypto-card" data-crypto="BTC">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">₿</span>
+                        <h3>Bitcoin</h3>
+                    </div>
+                    <div class="crypto-price" id="btcPrice">$0.00</div>
+                    <div class="crypto-ves" id="btcVes">Bs. 0.00</div>
+                </div>
+
+                <div class="crypto-card" data-crypto="ETH">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">Ξ</span>
+                        <h3>Ethereum</h3>
+                    </div>
+                    <div class="crypto-price" id="ethPrice">$0.00</div>
+                    <div class="crypto-ves" id="ethVes">Bs. 0.00</div>
+                </div>
+
+                <div class="crypto-card" data-crypto="BNB">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">●</span>
+                        <h3>BNB</h3>
+                    </div>
+                    <div class="crypto-price" id="bnbPrice">$0.00</div>
+                    <div class="crypto-ves" id="bnbVes">Bs. 0.00</div>
+                </div>
+
+                <div class="crypto-card" data-crypto="XRP">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">✕</span>
+                        <h3>Ripple</h3>
+                    </div>
+                    <div class="crypto-price" id="xrpPrice">$0.00</div>
+                    <div class="crypto-ves" id="xrpVes">Bs. 0.00</div>
+                </div>
+
+                <div class="crypto-card" data-crypto="SOL">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">◎</span>
+                        <h3>Solana</h3>
+                    </div>
+                    <div class="crypto-price" id="solPrice">$0.00</div>
+                    <div class="crypto-ves" id="solVes">Bs. 0.00</div>
+                </div>
+
+                <div class="crypto-card" data-crypto="PAXG">
+                    <div class="crypto-header">
+                        <span class="crypto-icon">⚜</span>
+                        <h3>PAX Gold</h3>
+                    </div>
+                    <div class="crypto-price" id="paxgPrice">$0.00</div>
+                    <div class="crypto-ves" id="paxgVes">Bs. 0.00</div>
+                </div>
+            </div>
+
+            <!-- Crypto Calculator -->
+            <div class="calc-card">
+                <h3>🧮 Calculadora de Cripto</h3>
+                
+                <div class="form-group">
+                    <label>Seleccionar Criptomoneda:</label>
+                    <select id="cryptoSelect" class="input">
+                        <option value="BTC">Bitcoin (BTC)</option>
+                        <option value="ETH">Ethereum (ETH)</option>
+                        <option value="BNB">BNB</option>
+                        <option value="XRP">Ripple (XRP)</option>
+                        <option value="SOL">Solana (SOL)</option>
+                        <option value="PAXG">PAX Gold (PAXG)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Conversión:</label>
+                    <select id="cryptoDirection" class="input">
+                        <option value="usdtToCrypto">USDT → Cripto</option>
+                        <option value="cryptoToUsdt">Cripto → USDT</option>
+                        <option value="vesToCrypto">VES → Cripto</option>
+                        <option value="cryptoToVes">Cripto → VES</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="smallUnitGroup" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="useSmallUnit">
+                        Usar <span id="smallUnitName">Satoshis</span>
+                    </label>
+                </div>
+
+                <div class="form-group">
+                    <label id="cryptoInputLabel">Cantidad (USDT):</label>
+                    <input type="number" id="cryptoAmount" class="input" placeholder="0.00" step="0.01">
+                </div>
+
+                <div class="result-box">
+                    <div class="result-label">Resultado:</div>
+                    <div class="result-value" id="cryptoResult">0.00</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
