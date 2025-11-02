@@ -51,17 +51,19 @@ const elements = {
     shareCryptoBtn: document.getElementById('shareCryptoBtn'),
     refreshCryptoBtn: document.getElementById('refreshCryptoBtn'),
     
-    // Calculator
+    // Calculator - Simple
     rateSelect: document.getElementById('rateSelect'),
     directionSelect: document.getElementById('directionSelect'),
     amountInput: document.getElementById('amountInput'),
     inputLabel: document.getElementById('inputLabel'),
     singleResult: document.getElementById('singleResult'),
     
-    // Comparison
+    // Calculator - Comparison
     rate1Select: document.getElementById('rate1Select'),
     rate2Select: document.getElementById('rate2Select'),
+    compareDirection: document.getElementById('compareDirection'),
     compareAmount: document.getElementById('compareAmount'),
+    compareInputLabel: document.getElementById('compareInputLabel'),
     rate1Name: document.getElementById('rate1Name'),
     rate2Name: document.getElementById('rate2Name'),
     rate1Result: document.getElementById('rate1Result'),
@@ -177,7 +179,7 @@ async function fetchExchangeRates() {
         const eurData = await eurResponse.json();
         state.rates.eur = eurData.rates.VES;
         
-        // Fetch USDT to VES (Binance P2P)  
+        // Fetch USDT to VES (Binance P2P)
         const binanceResponse = await fetch('https://criptoya.com/api/binancep2p/USDT/VES/1');
         const binanceData = await binanceResponse.json();
         state.rates.binance = binanceData.bid;
@@ -187,6 +189,7 @@ async function fetchExchangeRates() {
         // Save to cache
         saveToCache({
             rates: state.rates,
+            cryptoPrices: state.cryptoPrices,
             lastUpdate: state.lastUpdate
         });
         
@@ -228,6 +231,13 @@ async function fetchCryptoPrices() {
         const results = await Promise.all(promises);
         results.forEach(({ symbol, price }) => {
             state.cryptoPrices[symbol] = price;
+        });
+        
+        // Save to cache
+        saveToCache({
+            rates: state.rates,
+            cryptoPrices: state.cryptoPrices,
+            lastUpdate: state.lastUpdate || new Date()
         });
         
         updateCryptoPrices();
@@ -310,7 +320,7 @@ function calculateSingle() {
         elements.singleResult.textContent = `Bs. ${formatCurrency(result)}`;
     } else {
         result = amount / rate;
-        const currency = rateType === 'eur' ? 'EUR' : 'USD';
+        const currency = rateType === 'eur' ? 'EUR' : (rateType === 'binance' ? 'USDT' : 'USD');
         elements.singleResult.textContent = `${currency} ${formatCurrency(result)}`;
     }
 }
@@ -318,15 +328,28 @@ function calculateSingle() {
 function calculateComparison() {
     const rate1Type = elements.rate1Select.value;
     const rate2Type = elements.rate2Select.value;
-    const vesAmount = parseFloat(elements.compareAmount.value) || 0;
+    const direction = elements.compareDirection.value;
+    const amount = parseFloat(elements.compareAmount.value) || 0;
     
     const rate1 = state.rates[rate1Type];
     const rate2 = state.rates[rate2Type];
     
-    const result1 = vesAmount / rate1;
-    const result2 = vesAmount / rate2;
-    const average = (result1 + result2) / 2;
-    const difference = Math.abs(((result1 - result2) / result2) * 100);
+    let result1, result2, average;
+    
+    if (direction === 'fromVes') {
+        // VES → Divisa
+        result1 = amount / rate1;
+        result2 = amount / rate2;
+        average = (result1 + result2) / 2;
+    } else {
+        // Divisa → VES
+        result1 = amount * rate1;
+        result2 = amount * rate2;
+        average = (result1 + result2) / 2;
+    }
+    
+    // Calculate percentage difference
+    const difference = result2 !== 0 ? Math.abs(((result1 - result2) / result2) * 100) : 0;
     
     // Update names
     const names = {
@@ -338,10 +361,25 @@ function calculateComparison() {
     elements.rate1Name.textContent = names[rate1Type];
     elements.rate2Name.textContent = names[rate2Type];
     
-    // Update results
-    elements.rate1Result.textContent = formatCurrency(result1);
-    elements.rate2Result.textContent = formatCurrency(result2);
-    elements.averageResult.textContent = formatCurrency(average);
+    // Update results with proper formatting
+    if (direction === 'fromVes') {
+        // Showing currency amounts
+        const getCurrency = (type) => {
+            if (type === 'eur') return 'EUR';
+            if (type === 'binance') return 'USDT';
+            return 'USD';
+        };
+        
+        elements.rate1Result.textContent = `${getCurrency(rate1Type)} ${formatCurrency(result1)}`;
+        elements.rate2Result.textContent = `${getCurrency(rate2Type)} ${formatCurrency(result2)}`;
+        elements.averageResult.textContent = formatCurrency(average);
+    } else {
+        // Showing VES amounts
+        elements.rate1Result.textContent = `Bs. ${formatCurrency(result1)}`;
+        elements.rate2Result.textContent = `Bs. ${formatCurrency(result2)}`;
+        elements.averageResult.textContent = `Bs. ${formatCurrency(average)}`;
+    }
+    
     elements.differenceResult.textContent = `${formatCurrency(difference)}%`;
 }
 
@@ -389,8 +427,8 @@ function calculateCrypto() {
             }
             break;
             
-        case 'cryptoToVes':
-            const usdtValue = amount * cryptoPrice;
+        case 'cryptoToVes': //abogado
+			const usdtValue = amount * cryptoPrice;
             result = usdtValue * usdtVes;
             resultText = `Bs. ${formatCurrency(result)}`;
             break;
@@ -435,6 +473,16 @@ function updateDirectionLabel() {
     }
 }
 
+function updateCompareDirectionLabel() {
+    const direction = elements.compareDirection.value;
+    
+    if (direction === 'toVes') {
+        elements.compareInputLabel.textContent = 'Cantidad (Divisa):';
+    } else {
+        elements.compareInputLabel.textContent = 'Cantidad (VES):';
+    }
+}
+
 // ========================================
 // Share Functions
 // ========================================
@@ -454,7 +502,9 @@ Actualizado: ${state.lastUpdate.toLocaleString('es-VE')}`;
                 text: text
             });
         } catch (error) {
-            copyToClipboard(text);
+            if (error.name !== 'AbortError') {
+                copyToClipboard(text);
+            }
         }
     } else {
         copyToClipboard(text);
@@ -463,17 +513,22 @@ Actualizado: ${state.lastUpdate.toLocaleString('es-VE')}`;
 
 async function shareCalculator() {
     const rateType = elements.rateSelect.value;
+    const direction = elements.directionSelect.value;
     const amount = parseFloat(elements.amountInput.value) || 0;
     const result = elements.singleResult.textContent;
     
     const names = {
         bcv: 'Dólar BCV',
-        eur: 'Euro BCV',        binance: 'USDT Binance'
+        eur: 'Euro BCV',
+        binance: 'USDT Binance'
     };
     
-    const text = `🧮 Calculadora de Tasas
+    const directionText = direction === 'toVes' ? '→ VES' : 'VES →';
     
-${names[rateType]}: ${amount}
+    const text = `🧮 Calculadora de Tasas
+
+${names[rateType]}
+${amount} ${directionText}
 Resultado: ${result}
 
 Actualizado: ${state.lastUpdate.toLocaleString('es-VE')}`;
@@ -485,7 +540,9 @@ Actualizado: ${state.lastUpdate.toLocaleString('es-VE')}`;
                 text: text
             });
         } catch (error) {
-            copyToClipboard(text);
+            if (error.name !== 'AbortError') {
+                copyToClipboard(text);
+            }
         }
     } else {
         copyToClipboard(text);
@@ -511,7 +568,9 @@ USDT: Bs. ${formatCurrency(state.rates.binance)}`;
                 text: text
             });
         } catch (error) {
-            copyToClipboard(text);
+            if (error.name !== 'AbortError') {
+                copyToClipboard(text);
+            }
         }
     } else {
         copyToClipboard(text);
@@ -535,7 +594,9 @@ function fallbackCopyToClipboard(text) {
     textArea.value = text;
     textArea.style.position = 'fixed';
     textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
     document.body.appendChild(textArea);
+    textArea.focus();
     textArea.select();
     
     try {
@@ -574,6 +635,8 @@ function sendNotification() {
             window.focus();
             notification.close();
         };
+        
+        setTimeout(() => notification.close(), 10000);
     }
 }
 
@@ -583,8 +646,10 @@ function scheduleDailyNotification() {
     const now = Date.now();
     
     if (!lastNotification || now - parseInt(lastNotification) > CACHE_EXPIRY) {
-        sendNotification();
-        localStorage.setItem('lastNotification', now.toString());
+        if (state.lastUpdate && state.rates.bcv > 0) {
+            sendNotification();
+            localStorage.setItem('lastNotification', now.toString());
+        }
     }
     
     // Schedule next check in 1 hour
@@ -659,6 +724,10 @@ function initEventListeners() {
     // Calculator - Comparison
     elements.rate1Select.addEventListener('change', calculateComparison);
     elements.rate2Select.addEventListener('change', calculateComparison);
+    elements.compareDirection.addEventListener('change', () => {
+        updateCompareDirectionLabel();
+        calculateComparison();
+    });
     elements.compareAmount.addEventListener('input', calculateComparison);
     
     // Crypto calculator
@@ -675,6 +744,25 @@ function initEventListeners() {
     elements.cryptoAmount.addEventListener('input', calculateCrypto);
     elements.useSmallUnit.addEventListener('change', calculateCrypto);
     
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Ctrl/Cmd + R para refrescar
+        if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+            e.preventDefault();
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab.id === 'crypto') {
+                fetchCryptoPrices();
+            } else {
+                fetchExchangeRates();
+            }
+        }
+        
+        // Escape para cerrar loading
+        if (e.key === 'Escape') {
+            showLoading(false);
+        }
+    });
+    
     // Auto-refresh rates every 30 minutes
     setInterval(() => {
         if (state.isOnline) {
@@ -688,6 +776,24 @@ function initEventListeners() {
             fetchCryptoPrices();
         }
     }, 5 * 60 * 1000);
+    
+    // Page visibility API - refresh when user returns to tab
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && state.isOnline) {
+            const lastUpdate = state.lastUpdate ? state.lastUpdate.getTime() : 0;
+            const now = Date.now();
+            
+            // Refresh if more than 10 minutes have passed
+            if (now - lastUpdate > 10 * 60 * 1000) {
+                fetchExchangeRates();
+                
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab.id === 'crypto' && state.cryptoPrices.BTC > 0) {
+                    fetchCryptoPrices();
+                }
+            }
+        }
+    });
 }
 
 // ========================================
@@ -699,10 +805,23 @@ async function registerServiceWorker() {
             const registration = await navigator.serviceWorker.register('/sw.js');
             console.log('Service Worker registered:', registration);
             
-            // Request notification permission after service worker is ready
+            // Check for updates
             registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
                 console.log('Service Worker update found!');
+                
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        showToast('Actualización disponible', 'Recarga la página para actualizar', 'info');
+                    }
+                });
             });
+            
+            // Check for updates every hour
+            setInterval(() => {
+                registration.update();
+            }, 60 * 60 * 1000);
+            
         } catch (error) {
             console.error('Service Worker registration failed:', error);
         }
@@ -710,9 +829,29 @@ async function registerServiceWorker() {
 }
 
 // ========================================
+// PWA Install Prompt
+// ========================================
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show install button or banner
+    showToast('Instalar App', 'Puedes instalar esta app en tu dispositivo', 'info');
+});
+
+window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    showToast('¡Instalado!', 'La app se ha instalado correctamente', 'success');
+});
+
+// ========================================
 // Initialization
 // ========================================
 async function init() {
+    console.log('🚀 Iniciando aplicación...');
+    
     // Initialize tabs
     initTabs();
     
@@ -725,9 +864,14 @@ async function init() {
     // Try to load from cache first
     const cached = loadFromCache();
     if (cached) {
-        state.rates = cached.rates;
+        state.rates = cached.rates || state.rates;
+        state.cryptoPrices = cached.cryptoPrices || state.cryptoPrices;
         state.lastUpdate = new Date(cached.timestamp);
         updateDashboard();
+        if (state.cryptoPrices.BTC > 0) {
+            updateCryptoPrices();
+        }
+        console.log('✅ Datos cargados desde caché');
     }
     
     // Fetch fresh data if online
@@ -740,7 +884,10 @@ async function init() {
     }
     
     // Request notification permission
-    await requestNotificationPermission();
+    const notificationGranted = await requestNotificationPermission();
+    if (notificationGranted) {
+        console.log('✅ Permisos de notificación concedidos');
+    }
     
     // Start daily notification schedule
     scheduleDailyNotification();
@@ -750,8 +897,42 @@ async function init() {
     
     // Set initial labels
     updateDirectionLabel();
+    updateCompareDirectionLabel();
     updateCryptoInputLabel();
+    
+    console.log('✅ Aplicación iniciada correctamente');
 }
 
+// ========================================
+// Error Handling
+// ========================================
+window.addEventListener('error', (e) => {
+    console.error('Error global:', e.error);
+    showToast('Error', 'Ha ocurrido un error inesperado', 'error');
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('Promise rechazada:', e.reason);
+    showToast('Error', 'Error al procesar la solicitud', 'error');
+});
+
+// ========================================
 // Start the application
-document.addEventListener('DOMContentLoaded', init);
+// ========================================
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+
+// Export for debugging
+if (typeof window !== 'undefined') {
+    window.appState = state;
+    window.appFunctions = {
+        fetchExchangeRates,
+        fetchCryptoPrices,
+        calculateSingle,
+        calculateComparison,
+        calculateCrypto
+    };
+}
